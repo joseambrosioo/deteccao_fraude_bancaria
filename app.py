@@ -489,30 +489,46 @@ def atualizar_barra_fraude_idade(dummy):
 
 @app.callback(
     Output("barra-metricas-modelo", "figure"),
-    # O Input para este callback não é necessário, pois é estático na inicialização.
-    # Usamos um input fictício para garantir que ele seja executado na inicialização.
     Input('barra-fraude-idade', 'id')
 )
 def atualizar_barra_metricas_modelo(dummy):
+    print("--- DEBUG: Iniciando o callback para o gráfico de métricas ---")
+    
+    # 1. Verifique se os modelos foram carregados
+    print(f"Modelos carregados: {list(resultados_modelo.keys())}")
+    
+    # 2. Verifique se os dados de teste estão carregados
+    print(f"Dimensões de X_teste: {X_teste.shape}")
+    print(f"Dimensões de y_teste: {y_teste.shape}")
+    
     # Gráfico de Barras de Métricas do Modelo
     linhas_df = []
     for nome, modelo in resultados_modelo.items():
-        previsoes = modelo.predict(X_teste)
-        
-        if hasattr(modelo, 'predict_proba'):
-            probabilidades = modelo.predict_proba(X_teste)[:, 1]
-        else:
-            probabilidades = modelo.decision_function(X_teste)
+        try:
+            previsoes = modelo.predict(X_teste)
+            
+            if hasattr(modelo, 'predict_proba'):
+                probabilidades = modelo.predict_proba(X_teste)[:, 1]
+            else:
+                probabilidades = modelo.decision_function(X_teste)
 
-        linhas_df.append({
-            'Modelo': nome,
-            'Precisão': precision_score(y_teste, previsoes, zero_division=0),
-            'Recall': recall_score(y_teste, previsoes, zero_division=0),
-            'F1-Score': f1_score(y_teste, previsoes, zero_division=0),
-            'ROC-AUC': roc_auc_score(y_teste, probabilidades),
-        })
+            linhas_df.append({
+                'Modelo': nome,
+                'Precisão': precision_score(y_teste, previsoes, zero_division=0),
+                'Recall': recall_score(y_teste, previsoes, zero_division=0),
+                'F1-Score': f1_score(y_teste, previsoes, zero_division=0),
+                'ROC-AUC': roc_auc_score(y_teste, probabilidades),
+            })
+            print(f"Métricas calculadas para {nome}: {linhas_df[-1]}")
+        except Exception as e:
+            print(f"ERRO ao calcular métricas para o modelo {nome}: {e}")
+            linhas_df.append({'Modelo': nome, 'Precisão': 0, 'Recall': 0, 'F1-Score': 0, 'ROC-AUC': 0})
+            
     metricas_df = pd.DataFrame(linhas_df).round(4)
+    print("DataFrame de Métricas Final:")
+    print(metricas_df)
     
+    # Restante do código para o gráfico
     barra_metricas = go.Figure()
     for metrica in ['Precisão', 'Recall', 'F1-Score', 'ROC-AUC']:
         barra_metricas.add_trace(go.Bar(
@@ -528,6 +544,7 @@ def atualizar_barra_metricas_modelo(dummy):
         margin=dict(l=150, r=20, t=50, b=20),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
+    print("--- DEBUG: Fim do callback, figura gerada ---")
     return barra_metricas
 
 @app.callback(
